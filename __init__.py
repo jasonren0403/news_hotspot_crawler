@@ -1,0 +1,2 @@
+from hotspot_crawler.hotspot_crawler import settings
+from hotspot_crawler.hotspot_crawler import spiders
