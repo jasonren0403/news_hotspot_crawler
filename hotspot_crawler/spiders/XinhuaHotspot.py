@@ -17,8 +17,8 @@ class XinhuaHotspotSpider(CrawlSpider):
 
     now_yearmonth = time.strftime("%Y-%m", time.localtime())
     now_day = time.strftime("%d", time.localtime())
-    reg = r"https?://www\.xinhuanet\.com/\w+/ym/day/c_\d+"
-    reg = reg.replace("ym", now_yearmonth).replace("day", now_day)
+    reg = r"https?://www\.xinhuanet\.com/\w+/{ym}/{day}/c_\d+"
+    reg = reg.replace("{ym}", now_yearmonth).replace("{day}", now_day)
     rules = (
         Rule(LinkExtractor(allow=reg, deny=(
             r"https?://www\.xinhuanet\.com/english/\S+",
@@ -29,14 +29,14 @@ class XinhuaHotspotSpider(CrawlSpider):
 
     def parse_items_xinhua(self, response):
         # url示例：http://www.xinhuanet.com/fortune/2019-07/07/c_1210182505.htm
-        print("parsing url %s" % response.url)
+        self.logger.info("parsing url %s" % response.url)
         global request_more
         if response.meta.get('item') is None:
             item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
             request_more = True
         else:
             item_loader = response.meta['item']
-            print(item_loader.get_collected_values)
+            self.logger.info(item_loader.get_collected_values)
             request_more = False
         try:
             import re
@@ -77,7 +77,7 @@ class XinhuaHotspotSpider(CrawlSpider):
                 "video_url": response.css('.pageVideo::attr(src)').extract() or [],
             })
             item_loader.add_value("media_url", media_url)
-            hot_data = self.get_hot_statistics(response, newsId)
+            hot_data = self.get_hot_statistics(newsId)
             item_loader.add_value("hot_data", hot_data)
             more_pages = response.css('#div_currpage>a::attr(href)').extract()
             if more_pages and not request_more:
@@ -95,24 +95,22 @@ class XinhuaHotspotSpider(CrawlSpider):
             self.logger.critical(msg=e)
             return None
 
-    def get_hot_statistics(self, response, newsId):
-        import requests, string, random, re, json
-        url = 'http://comment.home.news.cn/a/newsInfo.do?newsId={}&callback=jQuery{}_{}&_={}'
+    def get_hot_statistics(self, newsId):
+        """
+        :param newsId:
+        :return:
+        """
+        import requests
+        url = 'http://comment.home.news.cn/a/newsInfo.do?newsId={}&_={}'
         newsId = newsId.strip('c_')
         newsId = "1-" + newsId
-        ran_num = ''.join(random.sample(3 * string.digits, 21))
+        self.logger.info(f'Getting comment for newsId {newsId}')
         microsecond = int(time.time() * 1000)
-        req = requests.get(url=url.format(newsId, ran_num, microsecond, microsecond + 1), headers={
+        req = requests.get(url=url.format(newsId, microsecond), headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36",
         })
         # print(req.url)
-        content = req.text.strip(';')
-        content = re.sub(r"jQuery\d+_\d+", repl="", string=content)
-        content = content.strip('()')
-        try:
-            datas = json.loads(content)
-        except:
-            datas = json.loads(content.replace(');', ''))
+        datas = req.json()
         if not datas.get('code'):
             comment_num = datas.get("commAmount")
             participate_count = datas.get("downAmount") + datas.get("upAmount")
@@ -121,9 +119,10 @@ class XinhuaHotspotSpider(CrawlSpider):
                 "participate_count": participate_count
             }
         else:
+            self.logger.info(datas.get('code') + " " + datas.get('description'))
             return {
-                "comment_num": datas.get('code') + datas.get('description'),
-                "participate_count": datas.get('code') + datas.get('description')
+                "comment_num": '',
+                "participate_count": ''
             }
 
     def deal_with_content(self, repl_text):

@@ -30,7 +30,7 @@ class SinaHotspotSpider(CrawlSpider):
     )
 
     def parse_sina_news(self, response):
-        print("parsing url %s" % response.url)
+        self.logger.info("parsing url %s" % response.url)
         # URL示例：https://news.sina.com.cn/s/2019-07-05/doc-ihytcerm1571229.shtml
         # start parsing #
         item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
@@ -84,7 +84,7 @@ class SinaHotspotSpider(CrawlSpider):
 
     def get_hot_statistics(self, response):
         import requests
-        comment_url = r"http://comment5.news.sina.com.cn/page/info?version=1&format=json&channel={}&newsid={}"
+        comment_url = r"http://comment.sina.com.cn/page/info?version=1&format=json&channel={}&newsid={}"
         # 评论地址变量：可以从新闻详情页sudameta获取
         metadatas = response.css('meta[name="sudameta"]::attr(content)').extract()
         temp_list = ';'.join(metadatas).split(';')
@@ -98,19 +98,22 @@ class SinaHotspotSpider(CrawlSpider):
             content = req.json()
             if content.get('result') and content.get('result') and content.get('result').get('status').get('code') == 0:
                 if content['result'].get('count'):
-                    comment_num = content.get('result').get('count').get('total') or "无法获取"
+                    comment_num = content.get('result').get('count').get('thread_show')
+                    participate_count = content.get('result').get('count').get('total')
                     return {
                         "comment_num": comment_num,
-                        "participate_count": "无法获取"
+                        "participate_count": participate_count
                     }
+            self.logger.warning("返回值错误，无法获取")
             return {
-                "comment_num": "返回值错误，无法获取",
-                "participate_count": "无法获取"
+                "comment_num": "",
+                "participate_count": ""
             }
         else:
+            self.logger.warning("channel 或 newsid错误，无法获取api数据")
             return {
-                "comment_num": "channel 或 newsid错误，无法获取api数据",
-                "participate_count": "无法获取"
+                "comment_num": "",
+                "participate_count": ""
             }
 
     def remove_spaces_and_comments(self, repl_text):

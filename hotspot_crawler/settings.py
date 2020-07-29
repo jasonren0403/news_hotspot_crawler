@@ -94,6 +94,6 @@ AUTOTHROTTLE_MAX_DELAY = 60
 # HTTPCACHE_IGNORE_HTTP_CODES = []
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 today = datetime.datetime.now()
-LOG_FILE = "./hotspot_crawler/log/{}.log".format(today.strftime('%Y%m%d_%H%M%S'))
+# LOG_FILE = "./hotspot_crawler/log/{}.log".format(today.strftime('%Y%m%d_%H%M%S'))
 HTTPERROR_ALLOWED_CODES = [400, ]
 FEED_EXPORT_ENCODING = 'utf-8'

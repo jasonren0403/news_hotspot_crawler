@@ -8,7 +8,7 @@ from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 class SohuHotspotSpider(CrawlSpider):
     name = 'SohuHotspot'
     allowed_domains = ['sohu.com']
-    start_urls = ['http://news.sohu.com/', ]
+    start_urls = ['https://news.sohu.com/', ]
 
     rules = (
         Rule(LinkExtractor(allow=r"^https?://www\.sohu\.com/a/\d{9,}_\d{6,}\S*$",
@@ -19,7 +19,7 @@ class SohuHotspotSpider(CrawlSpider):
     def parse_items_sohu(self, response):
         import re
         # url 示例：http://www.sohu.com/a/325336334_162522
-        print("parsing url %s" % response.url)
+        self.logger.info("parsing url %s" % response.url)
         item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
         try:
             title = response.css('head>title::text').extract_first()
@@ -28,7 +28,7 @@ class SohuHotspotSpider(CrawlSpider):
             item_loader.add_value("source", "搜狐新闻")
             item_loader.add_css("source_from", 'meta[name="mediaid"]::attr(content)')
             item_loader.add_css("publish_time", 'meta[itemprop="datePublished"]::attr(content)')
-            item_loader.add_css("content_url", 'meta[property="og:url"]::attr(content)')
+            item_loader.add_value("content_url", response.url)
             if not item_loader.get_collected_values("content_url"):
                 item_loader.add_value("content_url", response.url)
             item_loader.add_value("newsId", re.sub(r"\?\w+=\w+", "", response.url.split('/')[-1]))
@@ -59,23 +59,17 @@ class SohuHotspotSpider(CrawlSpider):
             return None
 
     def get_hot_statistics(self, response):
-        import re, json, time, random, requests, string
-        url = "http://apiv2.sohu.com/api/topic/load?callback=jQuery{}_{}&page_size=10&source_id={}"
+        import re, requests
+        url = "http://apiv2.sohu.com/api/topic/load?source_id={}"
         id_temp = re.sub(r"\?\w+=\w+", "", response.url.split('/')[-1])
         source_id = 'mp_' + id_temp.split('_')[0]
-        ran_num = ''.join(random.sample(3 * string.digits, 21))
-        microsecond = int(time.time() * 1000)
-        req = requests.get(url=url.format(ran_num, microsecond, source_id), headers={
+        req = requests.get(url=url.format(source_id), headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36",
         })
         # print(req.url)
-        content = req.text
-        content = re.sub(r"jQuery\d+_\d+", repl="", string=content)
-        content = content.rstrip(';').strip('()')
-        needed_datas = json.loads(content)
+        needed_datas = req.json()
         # print(needed_datas)
-        if needed_datas.get('msg') != 'FAIL' or needed_datas.get('jsonObject').get(
-                'source_id') != 'null' or needed_datas.get('comments') is not None:
+        if needed_datas.get('msg') != 'FAIL' and needed_datas.get('jsonObject') is not None:
             comment_num = needed_datas.get('jsonObject').get('cmt_sum')
             participate_count = needed_datas.get('jsonObject').get('participation_sum')
             return {
@@ -83,9 +77,10 @@ class SohuHotspotSpider(CrawlSpider):
                 "participate_count": participate_count
             }
         else:
+            self.logger.warn(f"Api数据获取失败！received: {needed_datas}")
             return {
-                "comment_num": "api数据获取失败",
-                "participate_count": "api数据获取失败"
+                "comment_num": "",
+                "participate_count": ""
             }
 
     def remove_spaces_and_comments(self, repl_text):

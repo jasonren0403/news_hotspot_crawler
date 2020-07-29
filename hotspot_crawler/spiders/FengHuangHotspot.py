@@ -8,15 +8,16 @@ from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 class FengHuangHotspotSpider(CrawlSpider):
     name = 'FengHuangHotspot'
     allowed_domains = ['ifeng.com']
-    start_urls = ['http://news.ifeng.com/', ]
+    start_urls = ['http://news.ifeng.com/', 'https://news.ifeng.com/']
 
     rules = (
-        Rule(LinkExtractor(allow=r"^https?://news\.ifeng\.com/c/\w+$", restrict_css=r".content-14uJp0dk"), follow=False,
+        Rule(LinkExtractor(allow=r"^https?://news\.ifeng\.com/c/\w+$",
+                           restrict_css=(".content-14uJp0dk", ".aside-2XIR61CP")), follow=False,
              callback='parse_items_fenghuang'),
     )
 
     def parse_items_fenghuang(self, response):
-        print("parsing url %s" % response.url)
+        self.logger.info("parsing url %s" % response.url)
         # url 示例：http://news.ifeng.com/c/7o7LgnmZ0lS
         item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
         try:
@@ -79,7 +80,7 @@ class FengHuangHotspotSpider(CrawlSpider):
                         elif each.get('type') == 'video':
                             video_urls.append(each['data'].get('playUrl') or "")
                         else:
-                            print(each.get('type'))
+                            self.logger.info(each.get('type'))
                     content = self.deal_with_content(content)
                 else:
                     content_list = []
@@ -88,7 +89,7 @@ class FengHuangHotspotSpider(CrawlSpider):
                             image_urls.append(each.get('url'))
                             content_list.append(each.get('description'))
                         else:
-                            print(each.get('type'))
+                            self.logger.info(each.get('type'))
                     content_list = list(set(content_list))
                     content = '\n'.join(content_list) or ""
                 return {

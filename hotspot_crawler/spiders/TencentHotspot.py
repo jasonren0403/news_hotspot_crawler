@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
 import re
-from json import JSONDecodeError
 
 import scrapy
+from scrapy.exceptions import DropItem
 
 from ..items import HotspotCrawlerItem
 
@@ -13,13 +13,13 @@ class TencentHotspotSpider(scrapy.Spider):
 
     allowed_domains = ["qq.com"]
     allLink = [
-        "https://pacaio.match.qq.com/irs/rcd?cid=137&token=d0f13d594edfc180f5bf6b845456f3ea&id=&ext=top&page=0&expIds=&callback=__jp1",
-        "https://pacaio.match.qq.com/irs/rcd?cid=4&token=9513f1a78a663e1d25b46a826f248c3c&ext=&page=0&expIds=&callback=__jp2"]
+        "https://pacaio.match.qq.com/irs/rcd?cid=137&token=d0f13d594edfc180f5bf6b845456f3ea&id=&ext=top&page=0&expIds=",
+        "https://pacaio.match.qq.com/irs/rcd?cid=4&token=9513f1a78a663e1d25b46a826f248c3c&ext=&page=0&expIds="]
     start_urls = [
-        "https://pacaio.match.qq.com/irs/rcd?cid=137&token=d0f13d594edfc180f5bf6b845456f3ea&id=&ext=top&page=0&expIds=&callback=__jp1"]
+        "https://pacaio.match.qq.com/irs/rcd?cid=137&token=d0f13d594edfc180f5bf6b845456f3ea&id=&ext=top&page=0&expIds="]
     for i in range(0, 11):
         url = "https://pacaio.match.qq.com/irs/rcd?cid=137&token=d0f13d594edfc180f5bf6b845456f3ea&ext=top&page=" + str(
-            i + 1) + "&callback=__jp" + str(i + 4)
+            i + 1)
         allLink.append(url)
 
     def parse(self, response):
@@ -28,24 +28,7 @@ class TencentHotspotSpider(scrapy.Spider):
 
     def parse_top_news(self, response):
         origin = response.text
-        trimmed = re.sub(pattern="__jp\\d+", repl="", string=origin).strip('()')
-        # print(trimmed)
-        try:
-            articles = json.loads(trimmed, encoding='utf-8')
-        except JSONDecodeError:
-            # print(trimmed)
-            try:
-                if trimmed.endswith('])'):
-                    articles = json.loads(trimmed[:-2], encoding='utf-8')
-                elif trimmed.startswith('(['):
-                    articles = json.loads(trimmed[1:], encoding='utf-8')
-                else:
-                    articles = trimmed
-                    raise Exception("数据解析错误，跳过当前url", articles)
-                    # 假如运行到这里，就是json解析出问题了，立刻抛出异常结束这个url的抓取
-            except Exception as e:
-                self.logger.critical(msg="遇到异常，调试信息如下：\n%s" % e.args)
-                return
+        articles = json.loads(origin)
         if 'code' not in articles:
             # 是今日要闻
             for article in articles:
@@ -78,17 +61,17 @@ class TencentHotspotSpider(scrapy.Spider):
 
     def parse_news_contents(self, response):
         url = response.url
-        print("parsing url %s" % url)
-        if re.match(r"https://new.qq.com/\w+", string=url):
-            if re.match(r"https?://new.qq.com/notfound.htm\w+", string=url):
-                return None
-            if re.match(r"https://new.qq.com/omn/\w+/\w+.html", string=url):
+        if "notfound.htm" in response.url and re.match(r"https://new\.qq\.com/notfound\.htm\?uri=(.+)\.html", url):
+            raise DropItem('Bad news item dropped')
+        self.logger.info("parsing url %s" % url)
+        if re.match(r"https://new\.qq\.com/\w+", string=url):
+            if re.match(r"https://new\.qq\.com/omn/\w+/\w+.html", string=url):
                 news_id = url.split('/')[-1][:-5]
-            elif re.match(r"https://new.qq.com/zt/template/\?id=\w+", string=url):
+            elif re.match(r"https://new\.qq\.com/zt/template/\?id=\w+", string=url):
                 news_id = url.split('/')[-1][4:]
             else:
                 news_id = url.split('/')[-1]
-            # print("current news id: %s" % news_id)
+            self.logger.info("current news id: %s" % news_id)
             yield scrapy.Request(
                 url="https://openapi.inews.qq.com/getQQNewsNormalContent?id={}&refer=mobilewwwqqcom&otype=json&ext_data=all&srcfrom=newsapp&callback=getNewsContentOnlyOutput".format(
                     news_id), callback=self.parse_news_api_json)
@@ -97,7 +80,6 @@ class TencentHotspotSpider(scrapy.Spider):
             return None
 
     def parse_news_api_json(self, response):
-        # print(response.url)
         content = json.loads(s=response.text, encoding="utf-8")
         # 当且仅当返回码为0的时候，才继续解析
         if content.get('ret') == 0:
@@ -121,6 +103,7 @@ class TencentHotspotSpider(scrapy.Spider):
                         if value.get(key) is not None:
                             vid = value.get(key).get("vid")
                             news['media_url']['video_url'].append("https://v.qq.com/x/page/" + vid)
+                            news['content'] = value.get(key).get("desc")
                             for each in value.get(key).get("img"):
                                 news['media_url']['img_url'].append(each.get("imgurl"))
                     if re.search("IMG", key.upper()):
@@ -128,11 +111,11 @@ class TencentHotspotSpider(scrapy.Spider):
                             for each in value.get(key).get("img"):
                                 news['media_url']['img_url'].append(each.get("imgurl"))
             content_news = content.get("ext_data").get("cnt_html")
-            news['content'] = self.del_html_labels(content_news)
+            news['content'] = self.del_html_labels(content_news) or news.get('content')
             news['abstract'] = content.get("ext_data").get("abstract") or content.get("ext_data").get("abstract_pad") or \
-                               news['content'][:100]
+                               (news.get('content') and news.get('content')[:100])
             news['abstract'] = re.sub(r'\u3000', repl="", string=news['abstract'])
-            return news
+            yield news
         else:
             self.logger.critical(msg="返回码为%d，api解析失败" % content.get('ret'))
             return None
@@ -144,7 +127,6 @@ class TencentHotspotSpider(scrapy.Spider):
         req = requests.get(url=url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36",
         })
-        # print(req.url)
         content = req.json()
         if content.get('errCode') == 0 and content.get('data'):
             comment_num = content.get('data').get('total') or int(
@@ -155,10 +137,10 @@ class TencentHotspotSpider(scrapy.Spider):
                 "participate_count": participate_count
             }
         else:
-            # print(content)
+            self.logger.info(str(content.get('errCode')) + '无法获取热点数据')
             return {
-                "comment_num": str(content.get('errCode')) + ": 无法获取评论数据",
-                "participate_count": "无法获取参与人数数据",
+                "comment_num": "",
+                "participate_count": "",
             }
 
     def del_html_labels(self, html_text):
