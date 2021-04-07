@@ -5,7 +5,6 @@
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
-from fake_useragent import UserAgent
 from scrapy import signals
 
 
@@ -54,7 +53,7 @@ class HotspotCrawlerSpiderMiddleware(object):
             yield r
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        spider.logger.info('<Crawler middleware>Spider opened: %s' % spider.name)
 
 
 class HotspotCrawlerDownloaderMiddleware(object):
@@ -101,17 +100,4 @@ class HotspotCrawlerDownloaderMiddleware(object):
         pass
 
     def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
-
-
-class UserAgentMiddleware(object):
-    def __init__(self, crawler):
-        super(UserAgentMiddleware, self).__init__()
-        self.ua = UserAgent()
-
-    @classmethod
-    def from_crawler(cls, crawler):
-        return cls(crawler)
-
-    def process_request(self, request, spider):
-        request.headers.setdefault("User-Agent", self.ua.random)
+        spider.logger.info('<Downloader middleware>Spider opened: %s' % spider.name)

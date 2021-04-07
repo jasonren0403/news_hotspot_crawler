@@ -4,6 +4,7 @@ import time
 
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
 
 from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 
@@ -33,7 +34,8 @@ class SinaHotspotSpider(CrawlSpider):
         self.logger.info("parsing url %s" % response.url)
         # URL示例：https://news.sina.com.cn/s/2019-07-05/doc-ihytcerm1571229.shtml
         # start parsing #
-        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
+        selector = Selector(response=response, type='html')
+        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), selector=selector)
         try:
             item_loader.add_css("title", '.main-title::text') or ""
             item_loader.add_css("source_from",

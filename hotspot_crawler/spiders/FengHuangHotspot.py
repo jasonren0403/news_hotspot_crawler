@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
 
 from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 
@@ -19,7 +20,8 @@ class FengHuangHotspotSpider(CrawlSpider):
     def parse_items_fenghuang(self, response):
         self.logger.info("parsing url %s" % response.url)
         # url 示例：http://news.ifeng.com/c/7o7LgnmZ0lS
-        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
+        selector = Selector(response=response, type='html')
+        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), selector=selector)
         try:
             item_loader.add_value("source", "凤凰网资讯")
             keywords = list(

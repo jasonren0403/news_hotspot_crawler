@@ -22,7 +22,7 @@ class TencentHotspotSpider(scrapy.Spider):
             i + 1)
         allLink.append(url)
 
-    def parse(self, response):
+    def parse(self, response, **kwargs):
         for link in self.allLink:
             yield scrapy.Request(url=link, callback=self.parse_top_news)
 

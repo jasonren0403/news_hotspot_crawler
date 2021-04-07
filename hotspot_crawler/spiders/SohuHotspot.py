@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
 
 from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 
@@ -20,7 +21,8 @@ class SohuHotspotSpider(CrawlSpider):
         import re
         # url 示例：http://www.sohu.com/a/325336334_162522
         self.logger.info("parsing url %s" % response.url)
-        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
+        selector = Selector(response=response, type='html')
+        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), selector=selector)
         try:
             title = response.css('head>title::text').extract_first()
             title = re.sub(r"_\S+", "", title)

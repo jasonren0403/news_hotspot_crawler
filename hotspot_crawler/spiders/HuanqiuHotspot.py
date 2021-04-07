@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
 
 from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 
@@ -17,7 +18,8 @@ class HuanqiuHotspotSpider(CrawlSpider):
 
     def parse_item_huanqiu(self, response):
         self.logger.info("parsing url %s" % response.url)
-        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
+        selector = Selector(response=response, type='html')
+        item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), selector=selector)
         # url示例：https://oversea.huanqiu.com/article/3zFei0GDscp
         try:
             import re

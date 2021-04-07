@@ -57,7 +57,6 @@ SPIDER_MIDDLEWARES = {
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     'hotspot_crawler.middlewares.HotspotCrawlerDownloaderMiddleware': 543,
-    'hotspot_crawler.middlewares.UserAgentMiddleware': 616,
 }
 
 # Enable or disable extensions

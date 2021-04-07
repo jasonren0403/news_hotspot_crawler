@@ -6,6 +6,7 @@ import urllib
 import scrapy
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from scrapy.selector import Selector
 
 from ..items import HotspotCrawlerItem, HotspotCrawlerItemLoader
 
@@ -32,7 +33,8 @@ class XinhuaHotspotSpider(CrawlSpider):
         self.logger.info("parsing url %s" % response.url)
         global request_more
         if response.meta.get('item') is None:
-            item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), response=response)
+            selector = Selector(response=response, type='html')
+            item_loader = HotspotCrawlerItemLoader(item=HotspotCrawlerItem(), selector=selector)
             request_more = True
         else:
             item_loader = response.meta['item']
